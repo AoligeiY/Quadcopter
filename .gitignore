@@ -1,0 +1,11 @@
+DebugConfig/
+Listings/
+Objects/
+RTE/
+SystemView/
+*.jifengyang
+*.uvoptx
+*.uvprojx
+*.scvd
+JLinkLog.txt
+JLinkSettings.ini

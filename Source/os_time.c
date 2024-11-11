@@ -233,7 +233,6 @@ INT32U  OSTimeGet (void)
 #endif
 
 
-
     OS_ENTER_CRITICAL();
     ticks = OSTime;
     OS_EXIT_CRITICAL();

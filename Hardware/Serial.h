@@ -22,7 +22,7 @@ uint16_t Serial_GetRxData(void);
 
 void Send_Senser(int16_t ACC_X, int16_t ACC_Y, int16_t ACC_Z, int16_t GYRO_X,
 					int16_t GYRO_Y, int16_t GYRO_Z, int16_t MAG_X, int16_t MAG_Y, int16_t MAG_Z);
-void Send_si(float q0, float q1, float q2, float q3);
-void Send_SiYSBUFF(void);
+void Printf_Qua(float q0, float q1, float q2, float q3);
+void Send_QuaBUFF(void);
 
 #endif

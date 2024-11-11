@@ -7,10 +7,6 @@
 
 extern uint32_t PWM_IN_CH[4];
 
-uint16_t M;		//串口传输数据
-
-
-
 
 void PWM_Init(void)
 {

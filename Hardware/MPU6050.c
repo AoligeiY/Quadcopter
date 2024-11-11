@@ -1,14 +1,12 @@
-#include "stm32f4xx.h"                  // Device header
 #include "MPU6050_Reg.h"
 #include "includes.h"
 
-extern const float RAD_TO_DEGREE, DEGREE_TO_RAD, RAW_TO_RAD;
-extern MPU6050_DataTypeDef Acc_Gyro;
-extern Float_t fGyro;
-extern OS_EVENT* IICMutex;
-
+extern OS_EVENT* IICMutex;			// IIC锁
 extern int16_t Acel[3], Gyro[3], Mag[3];
 
+/**
+	MPU6050向寄存器写数据
+**/
 void MPU6050_WriteReg(uint8_t reg, uint8_t data)
 {
 	IIC_Start();
@@ -22,6 +20,9 @@ void MPU6050_WriteReg(uint8_t reg, uint8_t data)
 	IIC_Stop();
 }
 
+/**
+	MPU6050读寄存器数据
+**/
 uint8_t MPU6050_ReadReg(uint8_t reg)
 {
 	uint8_t data;
@@ -44,7 +45,6 @@ uint8_t MPU6050_ReadReg(uint8_t reg)
 
 void MPU6050_Init(void)
 {
-//	IIC_Init();
 	int i = 0, j = 0;
     //在初始化之前要延时一段时间，若没有延时，则断电后再上电数据可能会出错
     for (i = 0; i < 1000; i++) {
@@ -63,9 +63,8 @@ void MPU6050_Init(void)
 	MPU6050_WriteReg(MPU6050_CONFIG,0x06);			//设置低通滤波
 	// 11月1日：0x18->0x00, 量程修改为+-250度
 	MPU6050_WriteReg(MPU6050_GYRO_CONFIG,0x00);		//陀螺仪满量程+-2000度/秒 (最低分辨率 = 2^15/2000 = 16.4LSB/度/秒
-	// 11月1日：0x08->0x00
+	// 11月1日：0x08->0x00, 0x00量程为+-2G
 	MPU6050_WriteReg(MPU6050_ACCEL_CONFIG,0x00);	//加速度满量程+-4g   (最低分辨率 = 2^15/4g = 8192LSB/g )
-	// 0x00量程为+-2G
 	
 //	MPU6050_WriteReg(MPU6050_PWR_MGMT_1,0x01);
 //	MPU6050_WriteReg(MPU6050_PWR_MGMT_2,0x00);
@@ -80,15 +79,19 @@ void MPU6050_Init(void)
 //	return 1;
 }
 
+// 获取MPU6050ID号，为0x68
 uint8_t MPU6050_GetID(void)
 {
 	return MPU6050_ReadReg(MPU6050_WHO_AM_I);
 }
 
+
+/**
+	读取MPU6050加速度计陀螺仪xyz轴数据
+**/
 void MPU6050_GetData(void)
 {
 	INT8U err;
-	//uint还是int
 	uint8_t DataH,DataL;
 	OSMutexPend(IICMutex, 0, &err);
 	
@@ -118,9 +121,6 @@ void MPU6050_GetData(void)
 	
 	OSMutexPost(IICMutex);
 	
-//	fGyro.x = (float)(Acc_Gyro.GyroX * RAW_TO_RAD);
-//	fGyro.y = (float)(Acc_Gyro.GyroY * RAW_TO_RAD);
-//	fGyro.z = (float)(Acc_Gyro.GyroZ * RAW_TO_RAD);
 }
 
 //void MPU6050_GetData(void)
@@ -166,8 +166,9 @@ void MPU6050_GetData(void)
 //	
 //}
 
-//以下为发送加速度计数据给匿名解析，问题是数据过长无法解析
-//下一步发送欧拉角数据
+// 已弃用
+// 以下为发送原始加速度计陀螺仪数据给匿名解析
+// 数据帧格式不对且数据不经过任何处理，改用Send_QuaBUFF发送四元数数据帧
 void Send_BUFF(void)
 {
 	//MPU6050_GetData(&Data1);

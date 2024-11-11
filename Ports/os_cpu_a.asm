@@ -321,7 +321,7 @@
 			EXPORT  OSStartHighRdy               
 			EXPORT  OSCtxSw
 			EXPORT  OSIntCtxSw
-			EXPORT  OS_CPU_SR_Save                                      ; Functions declared in this file
+			EXPORT  OS_CPU_SR_Save          ; Functions declared in this file
 			EXPORT  OS_CPU_SR_Restore       
 			EXPORT  PendSV_Handler
 			

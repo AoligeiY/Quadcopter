@@ -2,13 +2,6 @@
 #define _HMC5883L_H_
 
 
-typedef struct 
-{
-	int16_t MagX;
-	int16_t MagY;
-	int16_t MagZ;
-
-}HMC5883L_DataTypeDef;
 
 void HMC5883L_WriteReg(uint8_t reg, uint8_t data);
 

@@ -160,6 +160,7 @@
   #define HSI_VALUE    ((uint32_t)16000000) /*!< Value of the Internal oscillator in Hz*/
 #endif /* HSI_VALUE */   
 
+
 /**
  * @brief STM32F4XX Standard Peripherals Library version number V1.8.0
    */

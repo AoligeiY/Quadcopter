@@ -165,6 +165,7 @@ void I2C_DeInit(I2C_TypeDef* I2Cx)
   }
 }
 
+
 /**
   * @brief  Initializes the I2Cx peripheral according to the specified 
   *         parameters in the I2C_InitStruct.

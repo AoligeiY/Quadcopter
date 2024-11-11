@@ -687,6 +687,10 @@ void  OSTimeTickHook (void)
 //    OS_CPU_CM4_NVIC_ST_CTRL |= OS_CPU_CM4_NVIC_ST_CTRL_INTEN;
 //}
 
+
+/**
+	初始化滴答定时器，1ms一次tick
+**/
 void SysTick_Init(void)
 {
 	RCC_ClocksTypeDef RCC_Clocks;		//存储系统时钟频率信息
@@ -694,6 +698,9 @@ void SysTick_Init(void)
 	SysTick_Config(RCC_Clocks.SYSCLK_Frequency/OS_TICKS_PER_SEC);
 }
 
+/**
+	
+**/
 void SysTick_Handler(void)
 {
 	OSIntEnter();						//进入中断

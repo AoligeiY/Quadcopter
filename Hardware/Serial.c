@@ -8,12 +8,11 @@
 uint16_t Serial_RxData;		//接收数据
 uint8_t Serial_RxFlag;		//接收标志位
 
-extern uint8_t sendBuf[20];
 
 #if 1
 
 /*	
-以下部分将关闭标准库半主机模式，以在不使用MicroLib的情况下实现printf接口重定向串口
+	以下部分将关闭标准库半主机模式，以在不使用MicroLib的情况下实现printf接口重定向串口
 */
 
 /* 告知连接器不从C库链接使用半主机的函数 */
@@ -79,6 +78,7 @@ void Serial_Init(void)
 	USART_InitStucture.USART_WordLength = USART_WordLength_8b;  //8位数据位
 	USART_Init(USART1,&USART_InitStucture);
 	
+	// 中断优先级配置
 	NVIC_InitTypeDef NVIC_InitStucture;
 	NVIC_InitStucture.NVIC_IRQChannel = USART1_IRQn;
 	NVIC_InitStucture.NVIC_IRQChannelCmd = ENABLE;
@@ -88,17 +88,18 @@ void Serial_Init(void)
 	
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
 
-	
 	USART_Cmd(USART1,ENABLE);
 	
 }
 
+// 串口发送一个字节
 void Serial_SendByte(uint16_t Byte)
 {
 	while(!USART_GetFlagStatus(USART1,USART_FLAG_TXE)){}
 	USART_SendData(USART1,Byte);
 }
 
+// 串口发送数组
 void UART1_Send_Array(unsigned char send_array[], unsigned char num){
 	unsigned char i=0;
 	while(i!=num){
@@ -107,6 +108,7 @@ void UART1_Send_Array(unsigned char send_array[], unsigned char num){
 		i++;
 	}
 }
+
 
 void Serial_SendArray(uint8_t *Array, uint16_t Length)
 {
@@ -117,6 +119,7 @@ void Serial_SendArray(uint8_t *Array, uint16_t Length)
 	}
 }
 
+// 串口发送字符串
 void Serial_SendString(char *String)
 {
 	uint8_t i;
@@ -145,8 +148,7 @@ void Serial_SendNumber(uint32_t Number, uint8_t Length)
 	}
 }
 
-
-
+// printf重定向函数
 void Serial_Printf(char *format, ...)
 {
 	char String[100];
@@ -172,6 +174,7 @@ uint8_t Serial_GetRxFlag(void)
 	return 0;
 }
 
+// 中断处理
 void USART1_IRQHandler(void)
 {
 	OS_CPU_SR cpu_sr;
@@ -187,13 +190,15 @@ void USART1_IRQHandler(void)
 	OSIntExit();
 }
 
-void Send_si(float q0, float q1, float q2, float q3){
+// 打印四元数，调试时使用
+void Printf_Qua(float q0, float q1, float q2, float q3){
 	printf("q0:%f ", q0);
 	printf("q1:%f ", q1);
 	printf("q2:%f ", q2);
 	printf("q3:%f ", q3);
 }
 
+// 调试姿态数据
 void Send_Senser(int16_t ACC_X, int16_t ACC_Y, int16_t ACC_Z, int16_t GYRO_X,
 					int16_t GYRO_Y, int16_t GYRO_Z, int16_t MAG_X, int16_t MAG_Y, int16_t MAG_Z)
 {
@@ -238,10 +243,11 @@ void Send_Senser(int16_t ACC_X, int16_t ACC_Y, int16_t ACC_Z, int16_t GYRO_X,
 //	}
 }
 
-
-void Send_SiYSBUFF(void)
+/**
+	按匿名数据帧协议向上位机发送四元数数据帧
+**/
+void Send_QuaBUFF(void)
 {
-	//MPU6050_GetData(&Data1);
 	
 	uint8_t i;
 	uint8_t sumcheck = 0;

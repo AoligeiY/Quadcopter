@@ -9,3 +9,7 @@ SystemView/
 *.scvd
 JLinkLog.txt
 JLinkSettings.ini
+stm32f4xx_fmc.c
+stm32f4xx_fmc.h
+stm32f4xx_fsmc.c
+stm32f4xx_fsmc.h

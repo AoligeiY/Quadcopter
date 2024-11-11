@@ -6,7 +6,7 @@
 
 * [x] 转接板PCB设计与焊接
 
-<img src="/images/pcb.jpg"  alt="pcb" style="zoom:80%;" />
+<img src="/Images/pcb.jpg"  alt="pcb" style="zoom:80%;" />
 
 * [x] 分电板及稳压模块
 

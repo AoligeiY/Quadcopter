@@ -111,3 +111,43 @@ uint8_t IIC_ReceiveACK(void)
 	return AckBit;
 }
 
+uint16_t IIC_Read_2Bytes(uint8_t DeviceAddr, uint8_t address)
+{			//注意DeviceAddr为原始地址左移一位后的地址
+    uint8_t data_temp1, data_temp2;
+    uint16_t data_16;
+
+    IIC_Start();
+    IIC_SendByte(DeviceAddr);
+    IIC_SendByte(address);
+    IIC_Start();
+    IIC_SendByte(DeviceAddr + 1);
+    data_temp1 = IIC_ReceiveByte();
+	IIC_SendACK(0);
+	
+    data_temp2 = IIC_ReceiveByte();
+    IIC_Stop();
+
+    data_16 = (data_temp1 << 8) | data_temp2;
+    return data_16;
+}
+
+uint32_t IIC_Read_3Bytes(uint8_t DeviceAddr, uint8_t address)
+{		//注意DeviceAddr为原始地址左移一位后的地址
+    uint8_t data_temp1, data_temp2, data_temp3;
+    uint32_t data_32;
+
+    IIC_Start();
+    IIC_SendByte(DeviceAddr);
+    IIC_SendByte(address);
+    IIC_Start();
+    IIC_SendByte(DeviceAddr + 1);
+    data_temp1 = IIC_ReceiveByte();
+	IIC_SendACK(0);
+    data_temp2 = IIC_ReceiveByte();
+	IIC_SendACK(0);
+    data_temp3 = IIC_ReceiveByte();
+    IIC_Stop();
+
+    data_32 = (data_temp1 << 16) | (data_temp2 << 8) | data_temp3;
+    return data_32;
+}

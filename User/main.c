@@ -1,11 +1,17 @@
 #include "includes.h"
 //#include "os_trace_events.h"			//SystemView
 
-
+volatile float deltaT = 0.003f;
 int16_t Acel[3], Gyro[3], Mag[3];		// 原始加速度角速度磁场数据
 float acc[3], gyro[3], mag[3];			// 据量程转成弧度及零偏校准后的数据
+float gyroFiltered[3] = {0.0f, 0.0f, 0.0f};
+Angle angle;
+float Height;							// 
+float Pressure;							// 温度补偿大气压
+float Temperature; 						// 实际温度
 
-uint32_t PWM_IN_CH[4];			//4个输入捕获通道高电平计数值
+uint32_t PWM_IN_CH[5];			//4个输入捕获通道高电平计数值
+float motor1, motor2, motor3, motor4; 
 
 uint8_t sendBuf[20];			//串口发送数据帧
 OS_EVENT* IICMutex;
@@ -77,16 +83,19 @@ void Task_Startup(void *pdata){
 //	while(MPU6050_Init()!=1);
 	
 	HMC5883L_Init();
+//	MS5611_Init();
+//	TIM2_Init();
+	
 	PWM_Init();
 	IC_Init();
 	LED_Init();
-	
-	Motor_Start();			// 启动电机
+//	Motor_Start();			// 启动电机
 	
 //	OS_TRACE_INIT();
 //	OS_TRACE_START(); 
 	
-	OSTimeDlyHMSM(0,0,5,0);
+	OSTimeDlyHMSM(0,0,3,0);
+	Open_Calib();
 	
 	IICMutex = OSMutexCreate(MUTEX_IIC_PRIO, &err);
 	OSTaskCreateExt(Task_Angel,(void *)0, &TASK_ANGEL_STK[TASK_ANGEL_STK_SIZE-1], TASK_ANGEL_PRIO, TASK_ANGEL_PRIO, TASK_ANGEL_STK,TASK_ANGEL_STK_SIZE,(void *)0,OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR);
@@ -107,45 +116,71 @@ void Task_Startup(void *pdata){
 
 
 void Task_Angel(void *pdata){
+//	TIM2_Init();
+//	TIM2->CNT = 0;
 	while(1){
-//		PrepareData();
+		
 		MPU6050_GetData();
-//		acc[0] = (float)((Acel[0]*ACC_RANGE/65536.0f) - accCali.Ox) * accCali.Sx;
-//		acc[1] = (float)((Acel[1]*ACC_RANGE/65536.0f) - accCali.Oy) * accCali.Sy;
-//		acc[2] = (float)((Acel[2]*ACC_RANGE/65536.0f) - accCali.Oz) * accCali.Sz;
-		acc[0] = (float)(Acel[0]);
-		acc[1] = (float)(Acel[1]);
-		acc[2] = (float)(Acel[2]);
+//		acc[0] = (float)((Acel[0] / 16384.0f) - accCali.Ox) * accCali.Sx;
+//		acc[1] = (float)((Acel[1] / 16384.0f) - accCali.Oy) * accCali.Sy;
+//		acc[2] = (float)((Acel[2] / 16384.0f) - accCali.Oz) * accCali.Sz;
+		acc[0] = (float)(Acel[0] - accCali.Ox) / 16384.0f;
+		acc[1] = (float)(Acel[1] - accCali.Oy) / 16384.0f;
+		acc[2] = (float)(Acel[2] + (16384.0f - accCali.Oz)) / 16384.0f;
+//		acc[0] = (float)(Acel[0] - accCali.Ox);
+//		acc[1] = (float)(Acel[1] - accCali.Oy);
+//		acc[2] = (float)(Acel[2] - accCali.Oz);
+//		acc[0] = (float)(Acel[0]);
+//		acc[1] = (float)(Acel[1]);
+//		acc[2] = (float)(Acel[2]);
 		
 		gyro[0] = ((float)Gyro[0]) * RAW_TO_RAD - gyroCali.Ox;
 		gyro[1] = ((float)Gyro[1]) * RAW_TO_RAD - gyroCali.Oy;
 		gyro[2] = ((float)Gyro[2]) * RAW_TO_RAD - gyroCali.Oz;
-		
+//		gyro[0] = ((float)Gyro[0] - gyroCali.Ox) * RAW_TO_RAD;
+//		gyro[1] = ((float)Gyro[1] - gyroCali.Oy) * RAW_TO_RAD;
+//		gyro[2] = ((float)Gyro[2] - gyroCali.Oz) * RAW_TO_RAD;
+
+		memcpy(gyroFiltered, gyro, sizeof(gyro));
 		
 		HMC5883L_GetData();
-		mag[0] = (float)((Mag[0] / 1090.0f) - magCali.Ox) * magCali.Sx;
-		mag[1] = (float)((Mag[1] / 1090.0f) - magCali.Oy) * magCali.Sy;
-		mag[2] = (float)((Mag[2] / 1090.0f) - magCali.Oz) * magCali.Sz;
+//		mag[0] = (float)((Mag[0] / 1090.0f) - magCali.Ox) * magCali.Sx;
+//		mag[1] = (float)((Mag[1] / 1090.0f) - magCali.Oy) * magCali.Sy;
+//		mag[2] = (float)((Mag[2] / 1090.0f) - magCali.Oz) * magCali.Sz;
+		mag[0] = (float)(Mag[0] / 1090.0f);
+		mag[1] = (float)(Mag[1] / 1090.0f);
+		mag[2] = (float)(Mag[2] / 1090.0f);
 //		mag[0] = (float)(Mag[0]);
 //		mag[1] = (float)(Mag[1]);
 //		mag[2] = (float)(Mag[2]);
-		
-		MadgwickAHRSupdate(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], mag[1], -mag[0], mag[2]);
-//		MadgwickAHRSupdateIMU(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2]);
 
+//		deltaT = TIM2->CNT / 1000000.0f;
+////		printf("deltaT: %d\r\n", TIM2->CNT);
+//		TIM2->CNT = 0;
+		
+//		MS5611_GetData();
+//		
+		PrepareData();
+		
+		if (!Calib_Status()){
+			MadgwickAHRSupdate(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], mag[0], mag[1], mag[2]);
+//			Height_Update(Pressure);
+			Send_QuaBUFF();
+		}
+//		MadgwickAHRSupdate(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], mag[0], mag[1], mag[2]);
+//		Send_QuaBUFF();
+//		MadgwickAHRSupdateIMU(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2]);
 //		Send_Senser(Acel[0], Acel[1], Acel[2], gyro[0], gyro[1], gyro[2], Mag[0], Mag[1], Mag[2]);
-		Send_QuaBUFF();
-		OSTimeDly(5);
+		OSTimeDly(10);
 	}
 }
 
 void Task_Motor(void *pdata){
 	while(1){
-		PWM_OUT();
+//		PWM_OUT();
 		OSTimeDly(3);
 	}
 }
-
 
 void Task_Com(void *pdata){
 	while(1){

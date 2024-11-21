@@ -13,17 +13,20 @@
 //#include "arm_math.h"
 #include "core_cm4.h"
 #include "os_trace.h"
+#include "math.h"
+#include "string.h"
 
 #include "LED.h"
 #include "IIC.h"
 #include "Delay.h"
 #include "MPU6050.h"
-#include "HMC5883L.h"
+#include "HMC_MS.h"
 #include "Serial.h"
 #include "PWM.h"
 #include "IC.h"
 #include "MadgwickAHRS.h"
 #include "Calibration.h"
+#include "PID.h"
 
 
 

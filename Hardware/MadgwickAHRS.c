@@ -2,22 +2,21 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_rcc.h"
 #include <math.h>
+#include "includes.h"
 
-
-//#define sampleFreq 	512.0
-//#define betaDef		0.1
-
+extern Angle angle;
+extern volatile float deltaT;
 
 const float PI = 3.1415926535897932384626433f;
 const float RAD_TO_DEGREE = 180.0f / PI;
-const float DEGREE_TO_RAD = PI / 180.0f;
+const float DEGREE_TO_RAD = (PI / 180.0f);
 
 // 
-const float RAW_TO_RAD = (250.0f / 32768.0f) * DEGREE_TO_RAD;	
+const float RAW_TO_RAD = (500.0f / 65536.0f) * DEGREE_TO_RAD;	
 
 
-#define sampleFreq	50.0f		// sample frequency in Hz
-#define betaDef		0.5f		// 2 * proportional gain
+#define sampleFreq	25.0f		// sample frequency in Hz
+#define betaDef		0.80f		// 2 * proportional gain
 
 
 //---------------------------------------------------------------------------------------------------
@@ -51,7 +50,6 @@ void MadgwickAHRSupdate(float gx, float gy, float gz, float ax, float ay, float 
 	}
 
 	// Rate of change of quaternion from gyroscope
-	//q'=0.5*q*w			wΪ��������ϵ�Ƶ�������ϵ�Ľ��ٶ�Լ���������ǲɼ�������
 	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
 	qDot2 = 0.5f * (q0 * gx + q2 * gz - q3 * gy);
 	qDot3 = 0.5f * (q0 * gy - q1 * gz + q3 * gx);
@@ -95,7 +93,6 @@ void MadgwickAHRSupdate(float gx, float gy, float gz, float ax, float ay, float 
 		q3q3 = q3 * q3;
 
 		// Reference direction of Earth's magnetic field
-		//h(G����ϵ)=[0 hx hy hz]T(ת��)=q��m(B����ϵ)��q*		//��ʽ�ǰѴ�ǿ�Ʋ�������������ϵ�ڵĵشų�ת������������ϵ��
 		hx = mx * q0q0 - _2q0my * q3 + _2q0mz * q2 + mx * q1q1 + _2q1 * my * q2 + _2q1 * mz * q3 - mx * q2q2 - mx * q3q3;
 		hy = _2q0mx * q3 + my * q0q0 - _2q0mz * q1 + _2q1mx * q2 - my * q1q1 + my * q2q2 + _2q2 * mz * q3 - my * q3q3;
 		_2bx = sqrt(hx * hx + hy * hy);
@@ -126,6 +123,10 @@ void MadgwickAHRSupdate(float gx, float gy, float gz, float ax, float ay, float 
 	q1 += qDot2 * (1.0f / sampleFreq);
 	q2 += qDot3 * (1.0f / sampleFreq);
 	q3 += qDot4 * (1.0f / sampleFreq);
+//	q0 += qDot1 * deltaT;
+//	q1 += qDot2 * deltaT;
+//	q2 += qDot3 * deltaT;
+//	q3 += qDot4 * deltaT;
 
 	// Normalise quaternion
 	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
@@ -145,7 +146,6 @@ void MadgwickAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, flo
 	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
 
 	// Rate of change of quaternion from gyroscope
-	//q'=0.5*q*w			wΪ��������ϵ�Ƶ�������ϵ�Ľ��ٶ�Լ���������ǲɼ�������
 	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
 	qDot2 = 0.5f * (q0 * gx + q2 * gz - q3 * gy);
 	qDot3 = 0.5f * (q0 * gy - q1 * gz + q3 * gx);
@@ -198,6 +198,10 @@ void MadgwickAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, flo
 	q1 += qDot2 * (1.0f / sampleFreq);
 	q2 += qDot3 * (1.0f / sampleFreq);
 	q3 += qDot4 * (1.0f / sampleFreq);
+//	q0 += qDot1 * deltaT;
+//	q1 += qDot2 * deltaT;
+//	q2 += qDot3 * deltaT;
+//	q3 += qDot4 * deltaT;
 
 	// Normalise quaternion
 	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
@@ -205,6 +209,10 @@ void MadgwickAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, flo
 	q1 *= recipNorm;
 	q2 *= recipNorm;
 	q3 *= recipNorm;
+	
+	angle.yaw = atan2(2.0f * q1 * q2  + 2.0f * q0 * q3, -2.0f * q2 * q2 - 2.0f * q3* q3 + 1.0f); 					// yaw
+	angle.pitch = asin(-2.0f * q1 * q3 + 2.0f * q0* q2) * RAD_TO_DEGREE; 							    	// pitch
+	angle.roll = atan2(2.0f * q2 * q3 + 2.0f * q0 * q1, -2.0f * q1 * q1 - 2.0f * q2* q2 + 1.0f) * RAD_TO_DEGREE; 	// roll
 }
 
 //---------------------------------------------------------------------------------------------------
@@ -224,3 +232,23 @@ float invSqrt(float x) {
 //====================================================================================================
 // END OF CODE
 //====================================================================================================
+
+
+// 
+//void TIM2_Init(void) {
+//	TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+//	
+//	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+//	
+////	TIM_DeInit(TIM2);
+//	
+//	TIM_TimeBaseStructure.TIM_Period = 65535;
+//    TIM_TimeBaseStructure.TIM_Prescaler = 84 - 1;		// 1MHz
+//    TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+//    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+//    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+//	
+//	TIM_ARRPreloadConfig(TIM2, ENABLE);
+//    // 使能TIM2
+//    TIM_Cmd(TIM2, ENABLE);
+//}

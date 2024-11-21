@@ -11,6 +11,8 @@ void IIC_SendByte(uint8_t Byte);
 uint8_t IIC_ReceiveByte(void);
 void IIC_SendACK(uint8_t AckBit);
 uint8_t IIC_ReceiveACK(void);
+uint16_t IIC_Read_2Bytes(uint8_t DeviceAddr, uint8_t address);
+uint32_t IIC_Read_3Bytes(uint8_t DeviceAddr, uint8_t address);
 
 
 #endif

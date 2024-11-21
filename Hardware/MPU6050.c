@@ -223,33 +223,10 @@ void Send_BUFF(void)
 	}
 }	
 
-//void MPU6050_GetData(int16_t *AccX, int16_t *AccY, int16_t *AccZ, 
-//						int16_t *GyroX, int16_t *GyroY, int16_t *GyroZ)
-//{
-//	uint8_t DataH, DataL;
-//	
-//	DataH = MPU6050_ReadReg(MPU6050_ACCEL_XOUT_H);
-//	DataL = MPU6050_ReadReg(MPU6050_ACCEL_XOUT_L);
-//	*AccX = (DataH << 8) | DataL;
-//	
-//	DataH = MPU6050_ReadReg(MPU6050_ACCEL_YOUT_H);
-//	DataL = MPU6050_ReadReg(MPU6050_ACCEL_YOUT_L);
-//	*AccY = (DataH << 8) | DataL;
-//	
-//	DataH = MPU6050_ReadReg(MPU6050_ACCEL_ZOUT_H);
-//	DataL = MPU6050_ReadReg(MPU6050_ACCEL_ZOUT_L);
-//	*AccZ = (DataH << 8) | DataL;
-//	
-//	DataH = MPU6050_ReadReg(MPU6050_GYRO_XOUT_H);
-//	DataL = MPU6050_ReadReg(MPU6050_GYRO_XOUT_L);
-//	*GyroX = (DataH << 8) | DataL;
-//	
-//	DataH = MPU6050_ReadReg(MPU6050_GYRO_YOUT_H);
-//	DataL = MPU6050_ReadReg(MPU6050_GYRO_YOUT_L);
-//	*GyroY = (DataH << 8) | DataL;
-//	
-//	DataH = MPU6050_ReadReg(MPU6050_GYRO_ZOUT_H);
-//	DataL = MPU6050_ReadReg(MPU6050_GYRO_ZOUT_L);
-//	*GyroZ = (DataH << 8) | DataL;
+//void toEulerAngle(Angle *angle){
+//	angle->yaw = atan2(2 * q1 * q2  + 2 * q0 * q3, -2 * q2 * q2 - 2 * q3* q3 + 1) * RAD_TO_DEGREE; 					// yaw
+//	angle->pitch = asin(-2 * q1 * q3 + 2 * q0* q2) * RAD_TO_DEGREE - pitchOffset; 							    	// pitch
+//	angle->roll = atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2* q2 + 1) * RAD_TO_DEGREE - rollOffset; 	// roll
 //}
+
 

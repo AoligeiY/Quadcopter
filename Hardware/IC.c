@@ -1,9 +1,17 @@
 #include "stm32f4xx.h"                  // Device header
 #include "ucos_ii.h"
 #include "os_cpu.h"
+#include "IC.h"
 
-extern uint32_t PWM_IN_CH[4];
+extern uint32_t PWM_IN_CH[5];
 
+/*
+	接收机使用的是Microzone的MC7RB，有点拉没有PPM信号
+	只有一个M.BUS信号，但需要使用串口。鉴于打印转接板的时间，
+	只能含泪解析PWM了，故导致该模块极其臃肿（PPM没有你我该怎么活啊QAQ）
+ */
+ 
+ 
 void IC_Init(void)
 {
     /**开启外设时钟**/
@@ -90,6 +98,61 @@ void IC_Init(void)
     //使能定时器
 	TIM_Cmd(TIM4,ENABLE);
 	
+	
+	TIM2IC_Init();
+}
+
+void TIM2IC_Init(void) {
+	
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+	
+	GPIO_InitTypeDef GPIO_InitStructure;
+ 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_High_Speed;
+	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15 ;
+ 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	
+	GPIO_PinAFConfig(GPIOA,GPIO_PinSource15,GPIO_AF_TIM2);
+	
+	TIM_DeInit(TIM2);
+	
+	
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;
+	TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+	TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInitStructure.TIM_Period = 5000 - 1;		//ARR设为5000-1
+	TIM_TimeBaseInitStructure.TIM_Prescaler = 84 - 1;		//记一次数需要(1/1M)s
+	TIM_TimeBaseInitStructure.TIM_RepetitionCounter = 0;
+	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseInitStructure);
+	
+	TIM_ICInitTypeDef TIM_ICInitStructure;
+	//TIM2->CH1	PA15
+	TIM_ICInitStructure.TIM_Channel = TIM_Channel_1;
+	TIM_ICInitStructure.TIM_ICFilter = 0x0B;
+	TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
+	TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
+	TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
+	TIM_ICInit(TIM2,&TIM_ICInitStructure);
+	
+	/**配置NVIC**/
+	NVIC_InitTypeDef NVIC_InitTypeDefStructure;
+	NVIC_InitTypeDefStructure.NVIC_IRQChannel = TIM2_IRQn;
+	NVIC_InitTypeDefStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_InitTypeDefStructure.NVIC_IRQChannelPreemptionPriority = 1;
+	NVIC_InitTypeDefStructure.NVIC_IRQChannelSubPriority = 1;
+	NVIC_Init(&NVIC_InitTypeDefStructure);
+	
+	TIM_ClearFlag(TIM2,TIM_FLAG_Update);
+	TIM_ARRPreloadConfig(TIM2,DISABLE);
+	
+    /**中断使能**/
+	TIM_ITConfig(TIM2, TIM_IT_CC1 | TIM_IT_Update , ENABLE);
+
+    // 使能TIM2
+    TIM_Cmd(TIM2, ENABLE);
 }
 
 
@@ -244,6 +307,60 @@ void IC_Init(void)
 //}
 
 
+
+uint8_t TIM2_CAPTURE_STA = 0;			//初始值为0。0：此前为低电平,说明此时捕获到上升沿; 1: 此前为高电平，说明此时捕获下降沿
+uint16_t TIM2_CAPTURE_OVF = 0;			//CHx高电平期间，计数器溢出次数
+uint16_t TIM2_CAPTURE_VAL[2] = {0};		//CHx捕获到上升沿与下降沿的CCRx的值
+
+void TIM2_IRQHandler(void)
+{
+	OS_CPU_SR cpu_sr;
+	OS_ENTER_CRITICAL();
+	OSIntEnter();
+	//更新中断处理
+	if(TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET){
+		TIM_ClearITPendingBit(TIM2, TIM_IT_Update);		//清除更新中断标志位
+		
+		if(TIM2_CAPTURE_STA == 1)				//判断CHx已经处在高电平
+		{
+			if((TIM2_CAPTURE_OVF & 0x3F) == 0x3F)	//高电平时间过长
+			{	
+				TIM2_CAPTURE_VAL[0] = 0;				//捕获时间舍弃
+				TIM2_CAPTURE_OVF = 0;
+			}else
+			{
+				TIM2_CAPTURE_OVF++;			//溢出次数加一
+			}			
+		}	
+		
+	}
+	
+	//CH1捕获
+	if(TIM_GetFlagStatus(TIM2, TIM_IT_CC1) != RESET )			//通道一发生捕获
+	{
+		TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);					//清除捕获中断标志位
+		if(TIM2_CAPTURE_STA == 0)								//捕获前为低电平,捕获上升沿
+		{
+			TIM2_CAPTURE_VAL[0] = TIM_GetCapture1(TIM2);		//存取上升沿的CNT值
+			TIM2_CAPTURE_STA = 1 ;							//更改捕获状态
+			TIM_OC1PolarityConfig(TIM2, TIM_ICPolarity_Falling);	//通道下降沿捕获
+		}else{
+			TIM2_CAPTURE_VAL[1] = TIM_GetCapture1(TIM2);		//存取下降沿的CNT值
+			if(TIM2_CAPTURE_VAL[1] > TIM2_CAPTURE_VAL[0]){
+				PWM_IN_CH[4] = TIM2_CAPTURE_VAL[1] - TIM2_CAPTURE_VAL[0] + TIM2_CAPTURE_OVF * 4999;
+			}else{
+				PWM_IN_CH[4] = TIM2_CAPTURE_OVF * 4999 - TIM2_CAPTURE_VAL[0] + TIM2_CAPTURE_VAL[1];
+			}
+			TIM2_CAPTURE_OVF = 0 ;							//溢出次数清零
+			TIM2_CAPTURE_STA = 0 ;							//更改捕获状态
+			TIM_OC1PolarityConfig(TIM2, TIM_ICPolarity_Rising);	//通道上升沿沿捕获
+		}
+	}
+	OS_EXIT_CRITICAL();
+	OSIntExit();
+}
+
+
 uint8_t TIM4_CAPTURE_STA[4] = {0};		//初始值为0。0：此前为低电平,说明此时捕获到上升沿; 1: 此前为高电平，说明此时捕获下降沿
 uint16_t TIM4_CAPTURE_OVF[4] = {0};		//CHx高电平期间，计数器溢出次数
 uint16_t TIM4_CAPTURE_VAL[4][2] = {0};	//CHx捕获到上升沿与下降沿的CCRx的值
@@ -366,96 +483,3 @@ void TIM4_IRQHandler(void)
 	OSIntExit();
 }
 
-
-
-/* 该部分代码功能与上实现基本一致，但容错率较上低 */
-
-//void TIM4_IRQHandler(void)
-//{
-
-	//更新中断
-//	if(TIM_GetITStatus(TIM4,TIM_IT_Update) != RESET){
-//		TIM_ClearITPendingBit(TIM4,TIM_IT_Update);		//清除更新中断标志位
-//		uint8_t i;
-//		for(i = 0; i < 4; i++)
-//		{
-//			if(TIM4_CAPTURE_STA[i] == 1)				//判断CHx已经处在高电平
-//			{
-//					TIM4_CAPTURE_OVF[i]++;							//溢出次数加一
-//			}	
-//		}
-//	}
-
-//	CH1捕获
-//	if(TIM_GetFlagStatus(TIM4, TIM_IT_CC1) != RESET )			//通道一发生捕获
-//	{
-//		TIM_ClearITPendingBit(TIM4,TIM_IT_CC1);					//清除捕获中断标志位
-//		if(TIM4_CAPTURE_STA[0] == 0)								//捕获前为低电平,捕获上升沿
-//		{
-//			TIM4_CAPTURE_VAL[0][0] = TIM_GetCapture1(TIM4);		//存取上升沿的CNT值
-//			TIM4_CAPTURE_STA[0] = 1 ;							//更改捕获状态
-//			TIM_OC1PolarityConfig(TIM4,TIM_ICPolarity_Falling);	//通道下降沿捕获
-//		}else{
-//			TIM4_CAPTURE_VAL[0][1] = TIM_GetCapture1(TIM4);		//存取下降沿的CNT值
-//			PWM_IN_CH[0] = TIM4_CAPTURE_VAL[0][1] - TIM4_CAPTURE_VAL[0][0] + TIM4_CAPTURE_OVF[0] * 65535; 		//计算脉冲宽度
-//			TIM4_CAPTURE_OVF[0] = 0 ;							//溢出次数清零
-//			TIM4_CAPTURE_STA[0] = 0 ;							//更改捕获状态
-//			TIM_OC1PolarityConfig(TIM4,TIM_ICPolarity_Rising);	//通道上升沿沿捕获
-//		}
-//	}
-//	
-//	//CH2捕获
-//	if(TIM_GetFlagStatus(TIM4, TIM_IT_CC2) != RESET )
-//	{
-//		TIM_ClearITPendingBit(TIM4,TIM_IT_CC2);
-//		if(TIM4_CAPTURE_STA[1] == 0)
-//		{
-//			TIM4_CAPTURE_VAL[1][0] = TIM_GetCapture2(TIM4);
-//			TIM4_CAPTURE_STA[1] = 1 ;
-//			TIM_OC2PolarityConfig(TIM4,TIM_ICPolarity_Falling);
-//		}else{
-//			TIM4_CAPTURE_VAL[1][1] = TIM_GetCapture2(TIM4);
-//			PWM_IN_CH[1] = TIM4_CAPTURE_VAL[1][1] - TIM4_CAPTURE_VAL[1][0] + TIM4_CAPTURE_OVF[1] * 65535; //计算脉冲宽度
-//			TIM4_CAPTURE_OVF[1] = 0 ;
-//			TIM4_CAPTURE_STA[1] = 0 ;
-//			TIM_OC2PolarityConfig(TIM4,TIM_ICPolarity_Rising);
-//		}
-//	}
-//	
-//	//CH3捕获
-//	if(TIM_GetFlagStatus(TIM4, TIM_IT_CC3) != RESET )
-//	{
-//		TIM_ClearITPendingBit(TIM4,TIM_IT_CC3);
-//		if(TIM4_CAPTURE_STA[2] == 0)
-//		{
-//			TIM4_CAPTURE_VAL[2][0] = TIM_GetCapture3(TIM4);
-//			TIM4_CAPTURE_STA[2] = 1 ;
-//			TIM_OC3PolarityConfig(TIM4,TIM_ICPolarity_Falling);
-//		}else{
-//			TIM4_CAPTURE_VAL[2][1] = TIM_GetCapture3(TIM4);
-//			PWM_IN_CH[2] = TIM4_CAPTURE_VAL[2][1] - TIM4_CAPTURE_VAL[2][0] + TIM4_CAPTURE_OVF[2] * 65535; //计算脉冲宽度
-//			TIM4_CAPTURE_OVF[2] = 0 ;
-//			TIM4_CAPTURE_STA[2] = 0 ;
-//			TIM_OC3PolarityConfig(TIM4,TIM_ICPolarity_Rising);
-//		}
-//	}
-//	
-//	//CH4捕获
-//	if(TIM_GetFlagStatus(TIM4, TIM_IT_CC4) != RESET )
-//	{
-//		TIM_ClearITPendingBit(TIM4,TIM_IT_CC4);
-//		if(TIM4_CAPTURE_STA[3] == 0)
-//		{
-//			TIM4_CAPTURE_VAL[3][0] = TIM_GetCapture4(TIM4);
-//			TIM4_CAPTURE_STA[3] = 1 ;
-//			TIM_OC4PolarityConfig(TIM4,TIM_ICPolarity_Falling);
-//		}else{
-//			TIM4_CAPTURE_VAL[3][1] = TIM_GetCapture4(TIM4);
-//			PWM_IN_CH[3] = TIM4_CAPTURE_VAL[3][1] - TIM4_CAPTURE_VAL[3][0] + TIM4_CAPTURE_OVF[3] * 65535; //计算脉冲宽度
-//			TIM4_CAPTURE_OVF[3] = 0 ;
-//			TIM4_CAPTURE_STA[3] = 0 ;
-//			TIM_OC4PolarityConfig(TIM4,TIM_ICPolarity_Rising);
-//		}
-//	}
-
-//}

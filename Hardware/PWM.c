@@ -3,7 +3,7 @@
 #include "Serial.h"
 #include "PWM.h"
 
-//extern float motor1, motor2, motor3, motor4;
+extern float motor1, motor2, motor3, motor4;
 
 extern uint32_t PWM_IN_CH[4];
 
@@ -49,8 +49,8 @@ void PWM_Init(void)
 	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;
 	TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
 	TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
-	TIM_TimeBaseInitStructure.TIM_Period = 1000 - 1;	 		//ARR设为1000-1
-	TIM_TimeBaseInitStructure.TIM_Prescaler = 540-1 ;			//接收机PWM信号频率为155Hz，故向电机输出155HzPWM	
+	TIM_TimeBaseInitStructure.TIM_Period = 2000 - 1;	 		//ARR设为1000-1		11月21 ARR: 1000-1 -> 2000-1 PSC:540-1 -> 270 - 1
+	TIM_TimeBaseInitStructure.TIM_Prescaler = 270 - 1 ;			//接收机PWM信号频率为155Hz，故向电机输出155HzPWM	
 	TIM_TimeBaseInitStructure.TIM_RepetitionCounter = 0;
 	TIM_TimeBaseInit(TIM3, &TIM_TimeBaseInitStructure);
 
@@ -130,9 +130,9 @@ void Motor_Start(void)
 
 void PWM_OUT(void)
 {
-	TIM3->CCR1 = PWM_IN_CH[2]*PWM_IN_OUT_VAL;
-	TIM3->CCR2 = PWM_IN_CH[2]*PWM_IN_OUT_VAL;
-	TIM3->CCR3 = PWM_IN_CH[2]*PWM_IN_OUT_VAL;
-	TIM3->CCR4 = PWM_IN_CH[2]*PWM_IN_OUT_VAL;
+	TIM3->CCR1 = PWM_IN_CH[2] * PWM_IN_OUT_VAL;
+	TIM3->CCR2 = PWM_IN_CH[2] * PWM_IN_OUT_VAL;
+	TIM3->CCR3 = PWM_IN_CH[2] * PWM_IN_OUT_VAL;
+	TIM3->CCR4 = PWM_IN_CH[2] * PWM_IN_OUT_VAL;
 }
 
